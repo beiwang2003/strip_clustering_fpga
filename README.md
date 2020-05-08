@@ -5,16 +5,16 @@ The prefix sum implemenation is based on the clpp library at https://code.google
 
 ### Building and running
 
-1. setup the env for FPGA 
-source ./opencl.sh
+1. setup the env for FPGA <br />
+source ./opencl.sh<br />
 
-2. offline compile the *.cl kernels in emulation mode
-aoc -march=emulator -legacy=emulator ./clppScan_Default.cl
-aoc -march=emulator -legacy=emulator ./clustering.cl
-aoc -march=emulator -legacy=emulator ./findSeedStrips.cl
+2. offline compile the *.cl kernels in emulation mode <br />
+aoc -march=emulator -legacy=emulator ./clppScan_Default.cl <br />
+aoc -march=emulator -legacy=emulator ./clustering.cl <br />
+aoc -march=emulator -legacy=emulator ./findSeedStrips.cl <br />
 
-3. compile the host code by running Makefile
-make
+3. compile the host code by running Makefile <br />
+make <br />
 
-4. run the code in the host
-./strip-cluster
+4. run the code in the host <br />
+./strip-cluster <br />
