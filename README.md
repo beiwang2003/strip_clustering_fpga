@@ -1,6 +1,6 @@
 ### Content
 
-This is the OpenCL implementation of the CMS standard "three threshold" algorithm for FPGA. It is based on the parallel CPU and GPU version availble at https://github.com/beiwang2003/strip_clustering_gpu/tree/debug.
+This is the OpenCL implementation of the CMS standard "three threshold" algorithm for FPGA. It is based on the parallel CPU and GPU version availble at https://github.com/beiwang2003/strip_clustering_gpu.
 The prefix sum implemenation is based on the clpp library at https://code.google.com/archive/p/clpp/downloads
 
 ### Building and running
