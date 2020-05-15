@@ -6,7 +6,7 @@ The prefix sum implemenation is based on the clpp library at https://code.google
 ### Building and running
 
 1. setup the env for FPGA <br />
-source ./opencl.sh<br />
+source /opt/intel/fpga-d5005/inteldevstack/init_env.sh
 
 2. offline compile the *.cl kernels in emulation mode <br />
 aoc -march=emulator -legacy=emulator ./clppScan_Default.cl <br />
