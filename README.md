@@ -6,8 +6,7 @@ The prefix sum implemenation is based on the clpp library at https://code.google
 ### Building and running on the host for debugging
 
 1. setup the env for FPGA <br />
-source /opt/intel/fpga-d5005/inteldevstack/init_env.sh (this is the default 19.2 OpenCL SDK)
-(we can load 19.4 and 20.1 OpenCL SDK using 
+source /opt/intel/fpga-d5005/inteldevstack/init_env.sh (this is the default 19.2 OpenCL SDK. We can load 19.4 and 20.1 OpenCL SDK using 
 source /opt/intel/fpga-d5005/inteldevstack/init_env_19_4.sh and
 source /opt/intel/fpga-d5005/inteldevstack/init_env_20.1.sh)
  
@@ -25,7 +24,7 @@ make <br />
 4. run the code in the host <br />
 ./strip-cluster <br />
 
-### Offling kernel compiling and optimization
+### Offling kernel compiling and optimization (see section 2 in aocl_programming_guide.pdf)
 1. intermediate compilation with -c option (generate <kernel_filename>.aoco file) <br />
 aoc -c <kernel_filename>.cl -report <br />
 
@@ -37,12 +36,12 @@ aoc -rtl <kernel_filename>.cl -report <br />
 4. simulate (generate <kernel_filename>.aocx file> <br />
 aoc -march=simulator <kernel_filename>.cl <br />
 
-5. fast compilation (generate <kernel_filename>.aocx: minutes to hours) <br />
-aoc -fast-compile <kernel_filename>.cl <br />
+5. compile (generate <kernel_filename>.aocx: minutes to hours) <br />
+aoc -fast-compile <kernel_filename>.cl (fast compilation for small design changes) <br />
+aoc -incremental <kernel_filename>.cl (incremental compilation for big design changes) <br />
 
 6. full deployment (generate <kernel_filename>.aocx: hours) <br />
 aoc <kernel_filename>.cl <br />
-(see section 2 in aocl_programming_guide.pdf) <br />
 
 ### Managing FPGA board 
 1. query the device name of your fpga board <br />
