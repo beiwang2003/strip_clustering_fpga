@@ -2,7 +2,8 @@
 
 findSeedStrips::findSeedStrips(clppContext *context) {
 
-  if (!createProgramFromBinary(context, "findSeedStrips")) return;
+  //  if (!createProgramFromBinary(context, "findSeedStrips")) return;
+  if (!createProgramFromBinary(context, "unifiedKernels")) return;
 
   cl_int clStatus;
 

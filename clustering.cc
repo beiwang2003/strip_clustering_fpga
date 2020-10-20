@@ -2,7 +2,8 @@
 
 clustering::clustering(clppContext *context) {
 
-  if (!createProgramFromBinary(context, "clustering")) return;
+  //if (!createProgramFromBinary(context, "clustering")) return;
+  if (!createProgramFromBinary(context,"unifiedKernels")) return;
 
   // ----- prepare all kernels
   cl_int clStatus;
