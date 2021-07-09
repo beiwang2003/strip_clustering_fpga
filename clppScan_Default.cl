@@ -150,8 +150,8 @@ void kernel__ExclusivePrefixScan(
 	
     const int tid2_0 = tid << 1;
     const int tid2_1 = tid2_0 + 1;
-	
-	const int gid2_0 = gid << 1;
+
+    const int gid2_0 = gid << 1;
     const int gid2_1 = gid2_0 + 1;
 
 	// Cache the datas in local memory

@@ -167,6 +167,7 @@ const char* clppProgram::getOpenCLErrorString(cl_int err)
 void clppProgram::checkCLStatus(cl_int clStatus)
 {
   const char* e = getOpenCLErrorString(clStatus);
+  if (clStatus != CL_SUCCESS) printf("checkCLStatus failed:%s\n",e);
   assert(clStatus == CL_SUCCESS);
 }
 

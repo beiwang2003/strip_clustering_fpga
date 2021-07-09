@@ -34,6 +34,7 @@ class clppContext
   void device_info_uint( cl_device_id device, cl_device_info param, const char* name);
   void device_info_bool( cl_device_id device, cl_device_info param, const char* name);
   void device_info_string( cl_device_id device, cl_device_info param, const char* name);
+  void device_info_sizet(cl_device_id device, cl_device_info param, const char* name);
   void display_device_info( cl_device_id device );
   
  private:

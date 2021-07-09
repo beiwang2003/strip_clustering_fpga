@@ -7,7 +7,11 @@
 using namespace std;
 
 clppContext::clppContext() {
+#ifdef EMULATOR
   setup(0, 0);
+#else
+  setup(1, 0);
+#endif
 }
 
 clppContext::~clppContext() {
@@ -103,6 +107,12 @@ void clppContext::device_info_string( cl_device_id device, cl_device_info param,
   printf("%-40s = %s\n", name, a);
 }
 
+void clppContext::device_info_sizet(cl_device_id device, cl_device_info param, const char* name){
+  size_t a;
+  clGetDeviceInfo(device, param, sizeof(size_t), &a, NULL);
+  printf("%-40s = %zu\n", name, a);
+}
+
 void clppContext::display_device_info( cl_device_id device ) {
 
   printf("Querying device for info:\n");
@@ -125,6 +135,7 @@ void clppContext::display_device_info( cl_device_id device ) {
   device_info_ulong(device, CL_DEVICE_MAX_CONSTANT_ARGS, "CL_DEVICE_MAX_CONSTANT_ARGS");
   device_info_ulong(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, "CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE");
   device_info_uint(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, "CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS");
+  device_info_sizet(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, "CL_DEVICE_MAX_WORK_GROUP_SIZE");
   device_info_uint(device, CL_DEVICE_MEM_BASE_ADDR_ALIGN, "CL_DEVICE_MEM_BASE_ADDR_ALIGN");
   device_info_uint(device, CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE, "CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE");
   device_info_uint(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, "CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR");

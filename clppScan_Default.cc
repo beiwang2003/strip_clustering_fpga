@@ -6,8 +6,8 @@ clppScan_Default::clppScan_Default(clppContext* context, size_t valueSize, unsig
   _clBuffer_values = 0;
   _clBuffer_BlockSums = 0;
 
-  if (!createProgramFromBinary(context, "clppScan_Default")) return;
-  
+  //if (!createProgramFromBinary(context, "clppScan_Default")) return;
+  if (!createProgramFromBinary(context, "unifiedKernels")) return;
   //---- Prepare all the kernels
   cl_int clStatus;
   
@@ -21,12 +21,16 @@ clppScan_Default::clppScan_Default(clppContext* context, size_t valueSize, unsig
   checkCLStatus(clStatus);
   
   //---- Get the workgroup size
-  //  clGetKernelWorkGroupInfo(_kernel_Scan, _context->clDevice, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &_workgroupSize, 0);
-  //_workgroupSize = 128;
-  //_workgroupSize = 256;
-  _workgroupSize = 512;
+  // The offline compiler defaults to a maximum work-group size of 256 work-items; For this specific kernel, we can use the function
+  // below to query the contraint for this specific kernel
+  //clGetKernelWorkGroupInfo(_kernel_Scan, _context->clDevice, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &_workgroupSize, 0);
+  //printf("CL_KERNEL_WORK_GROUP_SIZE=%zu\n", _workgroupSize);
+  //_workgroupSize = 64;
+  //_workgroupSize = 128; // best performance 
+  _workgroupSize = 256; 
+  //_workgroupSize = 512; // failed for anything larger than 256
   //clGetKernelWorkGroupInfo(_kernel_Scan, _context->clDevice, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &_workgroupSize, 0);
-  
+  //printf("CL_KERNEL_PREFERRED_WORK_GROUP=%zu\n", _workgroupSize);
   //---- Prepare all the buffers
   allocateBlockSums(maxElements);
 }
@@ -43,7 +47,7 @@ void clppScan_Default::scan()
 {
   cl_int clStatus;
   
-  printf("_workgroupSize=%d valueSize=%d\n", _workgroupSize, _valueSize);
+  printf("clppScan_Default::scan() _workgroupSize=%d valueSize=%d\n", _workgroupSize, _valueSize);
   clStatus  = clSetKernelArg(_kernel_Scan, 1, _workgroupSize * _valueSize, 0);
   
   checkCLStatus(clStatus);
@@ -55,11 +59,16 @@ void clppScan_Default::scan()
       size_t globalWorkSize = {toMultipleOf(_blockSumsSizes[i] / 2, _workgroupSize / 2)};
       size_t localWorkSize = {_workgroupSize / 2};
       
+      printf("clppScan_Default::scan() i=%d blockSumsSizes=%d workgroupSize=%d globalWorkSize=%d localWorkSize=%d\n", i, _blockSumsSizes[i], _workgroupSize, globalWorkSize, localWorkSize);
+
       clStatus = clSetKernelArg(_kernel_Scan, 0, sizeof(cl_mem), &clValues);
       clStatus |= clSetKernelArg(_kernel_Scan, 2, sizeof(cl_mem), &_clBuffer_BlockSums[i]);
       clStatus |= clSetKernelArg(_kernel_Scan, 3, sizeof(int), &_blockSumsSizes[i]);
-      
+      if (clStatus != 0) printf("error in setting up kernel arg\n");
+      checkCLStatus(clStatus);
+
       clStatus |= clEnqueueNDRangeKernel(_context->clQueue, _kernel_Scan, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, NULL);
+      if (clStatus !=0) printf("error in calling kernel\n");
       checkCLStatus(clStatus);
       
       clValues = _clBuffer_BlockSums[i];
@@ -70,6 +79,8 @@ void clppScan_Default::scan()
     {
       size_t globalWorkSize = {toMultipleOf(_blockSumsSizes[i] / 2, _workgroupSize / 2)};
       size_t localWorkSize = {_workgroupSize / 2};
+
+      printf("clppScan_Default::uniformAdd() i=%d blockSumsSizes=%d workgroupSize=%d globalWorkSize=%d localWorkSize=%d\n", i, _blockSumsSizes[i], _workgroupSize, globalWorkSize, localWorkSize);
       
       cl_mem dest = (i > 0) ? _clBuffer_BlockSums[i-1] : _clBuffer_values;
       
@@ -114,6 +125,7 @@ void clppScan_Default::pushDatas(void* values, size_t datasetSize)
 	{
 	  _blockSumsSizes[i] = n;
 	  n = (n + _workgroupSize - 1) / _workgroupSize; // round up
+	  printf("clppScan_Default::pushDatas() i=%d n=%d pass=%d\n", i, n, _pass);
 	}
       _blockSumsSizes[_pass] = n;
     }
@@ -151,6 +163,7 @@ void clppScan_Default::pushDatas(cl_mem clBuffer_values, size_t datasetSize)
 	{
 	  n = (n + _workgroupSize - 1) / _workgroupSize; // round up
 	  _pass++;
+	  printf("_pass=%d n=%d\n", _pass, n);
 	}
       while(n > 1);
       
@@ -159,9 +172,12 @@ void clppScan_Default::pushDatas(cl_mem clBuffer_values, size_t datasetSize)
       for(unsigned int i = 0; i < _pass; i++)
 	{
 	  _blockSumsSizes[i] = n;
+          printf("clppScan_Default::pushDatas() i=%d blockSumsSizes=%d datasetSize=%d workgroupSize=%d pass=%d\n", i, n, _datasetSize, _workgroupSize, _pass);
+
 	  n = (n + _workgroupSize - 1) / _workgroupSize; // round up
 	}
       _blockSumsSizes[_pass] = n;
+      printf("clppScan_Default::pushDatas() i=%d blockSumsSizes=%d datasetSize=%d workgroupSize=%d pass=%d\n", _pass, n, _datasetSize, _workgroupSize, _pass);
     }
   
   _is_clBuffersOwner = false;
