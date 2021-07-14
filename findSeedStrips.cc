@@ -7,6 +7,8 @@ findSeedStrips::findSeedStrips(clppContext *context) {
 
   cl_int clStatus;
 
+  _kernel_setStripMask = clCreateKernel(_clProgram, "setStripMask", &clStatus);
+
   _kernel_setSeedStrips = clCreateKernel(_clProgram, "setSeedStrips", &clStatus);
 
   _kernel_setNCSeedStrips = clCreateKernel(_clProgram, "setNCSeedStrips", &clStatus);
@@ -14,6 +16,31 @@ findSeedStrips::findSeedStrips(clppContext *context) {
   _kernel_setStripIndex = clCreateKernel(_clProgram, "setStripIndex", &clStatus);
 
   checkCLStatus(clStatus);
+}
+
+void findSeedStrips::setStripMask(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl) {
+  cl_int clStatus;
+
+  size_t global_size = sst_data_cl->nStrips;
+
+  clStatus = clSetKernelArg(_kernel_setStripMask, 0, sizeof(cl_mem), (void *)&sst_data_cl->stripId);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 1, sizeof(cl_mem), (void *)&sst_data_cl->detId);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 2, sizeof(cl_mem), (void *)&sst_data_cl->adc);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 3, sizeof(cl_mem), (void *)&calib_data_cl->noise);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 4, sizeof(cl_mem), (void *)&sst_data_cl->seedStripsNCMask);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 5, sizeof(cl_ushort), (void *)&invStrip);
+  clStatus = clSetKernelArg(_kernel_setStripMask, 6, sizeof(cl_int), (void *)&global_size);
+
+  checkCLStatus(clStatus);
+
+#ifdef NDRANGE
+  printf("setStripMask not implement for NDRange\n");
+#else
+  size_t single_size = 1;
+  clStatus = clEnqueueNDRangeKernel(_context->clQueue, _kernel_setStripMask, 1, NULL, &single_size, &single_size, 0, NULL, NULL);
+#endif
+  checkCLStatus(clStatus);
+
 }
 
 void findSeedStrips::setSeedStrips(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl) {

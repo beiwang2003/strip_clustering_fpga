@@ -91,8 +91,9 @@ void setSeedStripsNCIndex(clppContext *context, sst_data_cl_t* sst_data_cl, sst_
   cl_int clStatus;
 
   auto setSeedIndex_ptr = std::make_unique<findSeedStrips>(context);
-  setSeedIndex_ptr->setSeedStrips(sst_data_cl, calib_data_cl);
-  setSeedIndex_ptr->setNCSeedStrips(sst_data_cl);
+  //    setSeedIndex_ptr->setSeedStrips(sst_data_cl, calib_data_cl);
+  //setSeedIndex_ptr->setNCSeedStrips(sst_data_cl);
+  setSeedIndex_ptr->setStripMask(sst_data_cl, calib_data_cl);
 
   clStatus = clEnqueueCopyBuffer(context->clQueue, sst_data_cl->seedStripsNCMask, sst_data_cl->prefixSeedStripsNCMask, 0, 0, sst_data_cl->nStrips*sizeof(int), 0, NULL, NULL);
   auto prefixScan_ptr = std::make_unique<clppScan_Default>(context, sizeof(int), sst_data_cl->nStrips);

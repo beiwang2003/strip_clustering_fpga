@@ -13,6 +13,8 @@ class findSeedStrips : public clppProgram
 
   ~findSeedStrips() { };
 
+  void setStripMask(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl);
+
   void setSeedStrips(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl);
 
   void setNCSeedStrips(sst_data_cl_t *sst_data_cl);
@@ -21,6 +23,7 @@ class findSeedStrips : public clppProgram
 
  private:
   
+  cl_kernel _kernel_setStripMask;
   cl_kernel _kernel_setSeedStrips;
   cl_kernel _kernel_setNCSeedStrips;
   cl_kernel _kernel_setStripIndex;

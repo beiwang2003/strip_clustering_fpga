@@ -1,8 +1,63 @@
 #include "clppScan_Default.cl"
+#define M 128
 
 typedef uchar uint8_t;
 typedef ushort uint16_t;
 typedef uint uint32_t;
+
+
+__kernel void setStripMask(__global uint16_t* restrict stripId, __global uint32_t* restrict detId,  __global uint8_t* restrict adc, __global float * restrict noise, __global int* restrict seedStripsNCMask, uint16_t invStrip, int N) {
+  const float SeedThreshold = 3.0;
+
+  bool mask_left=0;
+  uint16_t stripId_left;
+  uint32_t detId_left;
+  const int len = N/M;
+
+  for (unsigned int i=0; i<=len; i++) {
+    bool mask_loc[M];
+    bool mask2_loc[M];
+    uint16_t stripId_loc[M];
+    uint32_t detId_loc[M];
+
+    for (unsigned int j=0; j<M; j++) { 
+       mask_loc[j] = 0;
+       int index = i*M+j;
+       if (index<N) {
+         stripId_loc[j] = stripId[index];
+         detId_loc[j] = detId[index];
+       }
+       else {
+         stripId_loc[j] = invStrip;
+       }
+
+       if (stripId_loc[j] != invStrip) {
+         float noise_j = noise[index];
+         uint8_t adc_j = adc[index];
+         mask_loc[j] = (adc_j >= (uint8_t)( noise_j * SeedThreshold)) ? 1:0;
+       }
+       mask2_loc[j] = mask_loc[j];
+    }
+
+    if (mask_loc[0]&&mask_left&&(stripId_loc[0]-stripId_left==1)&&(detId_loc[0]==detId_left)) mask2_loc[0] = 0;
+
+    for (unsigned int j=1; j<M; j++) {
+      if (mask_loc[j]&&mask_loc[j-1]&&(stripId_loc[j]-stripId_loc[j-1]==1)&&(detId_loc[j]==detId_loc[j-1])) mask2_loc[j] = 0;
+    }
+
+    for (unsigned int j=0; j<M; j++) {
+      if ((i*M+j)<N)
+        seedStripsNCMask[i*M+j] = mask2_loc[j];
+    }
+
+    mask_left = mask_loc[M-1];
+    detId_left = detId_loc[M-1];
+    stripId_left = stripId_loc[M-1];
+   
+  }
+
+}
+
 
 __kernel void setSeedStrips(__global uint16_t* restrict stripId, __global int* restrict seedStripsMask, __global int* restrict seedStripsNCMask, __global uint8_t* restrict adc, __global float * restrict noise, uint16_t invStrip, int N) {
 
@@ -63,6 +118,9 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    const float  ChannelThreshold = 2.0;
    const float ClusterThresholdSquared = 25.0;
 
+   const float minGoodCharge = 1620.0;
+   const uint16_t stripIndexMask = 0x7FFF;
+
 #ifdef NDRANGE
    const unsigned i = get_global_id(0);
 #else
@@ -76,7 +134,7 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    float noiseSquared_i = noise_i*noise_i;
    float adcSum_i = (float)adc[index];
 
-     // find left boundary
+   // find left boundary
    int testIndexLeft=index-1;
    if (testIndexLeft>=0) {
      int rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
@@ -98,7 +156,7 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
      }
    }
 
-     // find right boundary
+   // find right boundary
    int testIndexRight=index+1;
    if (testIndexRight<nStrips) {
      int rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
@@ -123,7 +181,6 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    trueCluster[i] = noiseSquaredPass;
    clusterLastIndexLeft[i] = indexLeft;
    clusterLastIndexRight[i] = indexRight;
-
 #ifndef NDRANGE
    }
 #endif

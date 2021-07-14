@@ -67,7 +67,7 @@ env LD_LIBRARY_PATH=/usr/licensed/anaconda3/2020.7/lib:$LD_LIBRARY_PATH ./strip-
 (this will generate a profile.mon file for compiling with -profile option for the *.cl file)
 
 4. Post-processing the profile.mon data into a readable profile.json file for data processing with Intel VTune
-aocl profile ./strip-cluster -x unifiedKernels.cl -s unifiedKernels.source 
+aocl profile ./strip-cluster -x unifiedKernels.aocx -s unifiedKernels.source 
 (this will generate a profile.json for further data processing with Intel VTune)
 
 5. Instead of using Intel VTune, we can also launch the Intel FPGA Dynamic Profiler for OpenCL GUI
