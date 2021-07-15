@@ -1,5 +1,6 @@
 #include "clppScan_Default.cl"
 #define M 128
+#define CLUSTER_SIZE 16
 
 typedef uchar uint8_t;
 typedef ushort uint16_t;
@@ -134,6 +135,7 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    float noiseSquared_i = noise_i*noise_i;
    float adcSum_i = (float)adc[index];
 
+   /*
    // find left boundary
    int testIndexLeft=index-1;
    if (testIndexLeft>=0) {
@@ -155,7 +157,54 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
        }
      }
    }
+   */
 
+   // find left boundary
+   int testIndexLeft=index-1;
+   for (;index-testIndexLeft<CLUSTER_SIZE; testIndexLeft--) {
+     if (testIndexLeft>=0) {
+       int rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
+       bool sameDetLeft = detId[index] == detId[testIndexLeft];
+       if (rangeLeft>=0&&rangeLeft<=MaxSequentialHoles&&sameDetLeft) {
+
+         float testNoise = noise[testIndexLeft];
+         uint8_t testADC = adc[testIndexLeft];
+       
+         if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
+           --indexLeft;
+           noiseSquared_i += testNoise*testNoise;
+           adcSum_i += (float)testADC;
+         } 
+       } 
+       else
+         break;
+     }
+   }
+
+   // find right boundary
+   int testIndexRight=index+1;
+   for (; testIndexRight-index<CLUSTER_SIZE; testIndexRight++) {
+     if (testIndexRight<nStrips) {
+       int rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
+       bool sameDetRight = detId[index] == detId[testIndexRight];
+       if (rangeRight>=0&&rangeRight<=MaxSequentialHoles&&sameDetRight) {
+
+         float testNoise = noise[testIndexRight];
+         uint8_t testADC = adc[testIndexRight];
+	 float_t testGain = gain[testIndexRight];
+
+         if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
+           ++indexRight;
+           noiseSquared_i += testNoise*testNoise;
+           adcSum_i += (float)testADC;
+         }
+       }
+       else
+         break;
+     }
+   }
+
+   /*
    // find right boundary
    int testIndexRight=index+1;
    if (testIndexRight<nStrips) {
@@ -176,11 +225,13 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
        }
      }
    }
+   */
 
    bool noiseSquaredPass = noiseSquared_i*ClusterThresholdSquared <= adcSum_i*adcSum_i;
    trueCluster[i] = noiseSquaredPass;
    clusterLastIndexLeft[i] = indexLeft;
    clusterLastIndexRight[i] = indexRight;
+   
 #ifndef NDRANGE
    }
 #endif
