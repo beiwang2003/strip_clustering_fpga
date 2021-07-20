@@ -114,6 +114,195 @@ __kernel void setStripIndex(__global int* restrict seedStripsNCMask, __global in
 #endif
 }
 
+__kernel void formClusters_opt(int nStrips, int nSeedStripsNC, __global uint32_t* restrict detId, __global uint16_t* restrict stripId, __global uint8_t* restrict adc, __global int* restrict seedStripsNCIndex, __global float* restrict gain, __global float* restrict noise, __global int* restrict clusterLastIndexLeft, __global int* restrict clusterLastIndexRight, __global bool* restrict trueCluster,  __global uint8_t* restrict clusterADCs, __global float* restrict barycenter, int N) {
+
+   const uint8_t MaxSequentialHoles = 0;
+   const float  ChannelThreshold = 2.0;
+   const float ClusterThresholdSquared = 25.0;
+
+   const float minGoodCharge = 1620.0;
+   const uint16_t stripIndexMask = 0x7FFF;
+
+#ifdef NDRANGE
+   const unsigned i = get_global_id(0);
+#else
+   for (unsigned i=0; i<N; i++) {
+#endif
+   int index=seedStripsNCIndex[i];
+   int indexLeft = index;
+   int indexRight = index;
+   float noise_i = noise[index];
+   float gain_i = gain[index];
+   uint8_t adc_i = adc[index];
+   uint32_t detId_i = detId[index];
+
+   float noiseSquared_i = noise_i*noise_i;
+   float adcSum_i = (float)adc_i;
+   
+   int charge_i = (int)( (float)adc_i/gain_i + 0.5f );
+   if (adc_i < 254) adc_i = ( charge_i > 1022 ? 255 : (charge_i > 253 ? 254 : charge_i));
+   float adcSum2_i = (float)adc_i;
+   
+   uint16_t stripId_loc[2*CLUSTER_SIZE-1];
+   uint32_t detId_loc[2*CLUSTER_SIZE-1];
+   float noise_loc[2*CLUSTER_SIZE-1];
+   float gain_loc[2*CLUSTER_SIZE-1];
+   uint8_t adc_loc[2*CLUSTER_SIZE-1];
+   float adc2_loc[2*CLUSTER_SIZE-1];
+
+   for (int j=0; j<2*CLUSTER_SIZE-1; j++) {
+     int id = index-CLUSTER_SIZE+1;
+     if ((id+j)>=0&&(id+j)<nStrips) {
+       stripId_loc[j] = stripId[id+j];
+       detId_loc[j] = detId[id+j];
+       noise_loc[j] = noise[id+j];
+       gain_loc[j] = gain[id+j];
+       adc_loc[j] = adc[id+j];
+     }
+   }
+   adc2_loc[CLUSTER_SIZE-1] = (float)adc_i;
+
+   float noiseSquared_loc[K];
+   float adcSum_loc[K];
+   float adcSum2_loc[K];
+   for (int k=0; k<K; k++) {
+     noiseSquared_loc[k] = 0.0;
+     adcSum_loc[k] = 0.0;
+     adcSum2_loc[k] = 0.0;
+   }
+
+   // find left boundary
+   uint16_t stripId_left = stripId_loc[CLUSTER_SIZE-1];
+   for (int j=0; j<CLUSTER_SIZE-1; j++) {
+     int testIndexLeft = index-1-j;
+     int id = CLUSTER_SIZE-2-j;
+     if (testIndexLeft>=0) {
+       int rangeLeft = stripId_left-stripId_loc[id]-1;
+       bool sameDetLeft = detId_i == detId_loc[id];
+       if (rangeLeft>=0&&rangeLeft<=MaxSequentialHoles&&sameDetLeft) {
+
+         float testNoise = noise_loc[id];
+	 float testGain = gain_loc[id];
+         uint8_t testADC = adc_loc[id];
+
+         if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
+           --indexLeft;
+           stripId_left = stripId_loc[id];
+           //noiseSquared_i += testNoise*testNoise;
+           //adcSum_i += (float)testADC;
+
+           noiseSquared_loc[K-1] = noiseSquared_loc[0] + testNoise*testNoise;
+           adcSum_loc[K-1] = adcSum_loc[0] + (float)testADC;
+
+	   int charge = (int)( (float)testADC/testGain + 0.5f );
+           if (testADC < 254) testADC = ( charge > 1022 ? 255 : (charge > 253 ? 254 : charge));
+	   adcSum2_loc[K-1] = adcSum2_loc[0] + (float)testADC;
+	   adc2_loc[id] = (float)testADC;
+
+           #pragma unroll
+           for (unsigned k=0; k<K-1; k++) {
+             noiseSquared_loc[k] = noiseSquared_loc[k+1];
+             adcSum_loc[k] = adcSum_loc[k+1];
+	     adcSum2_loc[k] = adcSum2_loc[k+1];
+           }
+         }
+       }
+       else
+         break;
+     }
+   }
+
+   #pragma unroll
+   for (int k=0; k<K-1; k++) {
+     noiseSquared_i += noiseSquared_loc[k];
+     adcSum_i += adcSum_loc[k];
+     adcSum2_i += adcSum2_loc[k];
+
+     noiseSquared_loc[k] = 0.0;
+     adcSum_loc[k] = 0.0;
+     adcSum2_loc[k] = 0.0;
+   }
+
+   // find right boundary
+   uint16_t stripId_right = stripId_loc[CLUSTER_SIZE-1];
+   for (int j=0; j<CLUSTER_SIZE-1; j++) {
+     int testIndexRight = index+1+j;
+     int id=CLUSTER_SIZE+j;
+     if (testIndexRight<nStrips) {
+       int rangeRight = stripId_loc[id]-stripId_right-1;
+       bool sameDetRight = detId_i == detId_loc[id];
+       if (rangeRight>=0&&rangeRight<=MaxSequentialHoles&&sameDetRight) {
+
+         float testNoise = noise_loc[id];
+	 float testGain = gain_loc[id];
+         uint8_t testADC = adc_loc[id];
+
+         if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
+           ++indexRight;
+           stripId_right = stripId_loc[id];
+           //noiseSquared_i += testNoise*testNoise;
+           //adcSum_i += (float)testADC;
+           noiseSquared_loc[K-1] = noiseSquared_loc[0] + testNoise*testNoise;
+           adcSum_loc[K-1] = adcSum_loc[0] + (float)testADC;
+
+           int charge = (int)( (float)testADC/testGain + 0.5f );
+           if (testADC < 254) testADC = ( charge > 1022 ? 255 : (charge > 253 ? 254 : charge));
+	   adcSum2_loc[K-1] = adcSum2_loc[0] + (float)testADC;
+	   adc2_loc[id] = (float)testADC;
+
+           #pragma unroll
+           for (unsigned k=0; k<K-1; k++) {
+             noiseSquared_loc[k] = noiseSquared_loc[k+1];
+             adcSum_loc[k] = adcSum_loc[k+1];
+	     adcSum2_loc[k] = adcSum2_loc[k+1];
+           }
+         }
+       }
+       else
+         break;
+     }
+   }
+
+   #pragma unroll
+   for (int k=0; k<K-1; k++) {
+     noiseSquared_i += noiseSquared_loc[k];
+     adcSum_i += adcSum_loc[k];
+     adcSum2_i += adcSum2_loc[k];
+   }
+
+   bool noiseSquaredPass = noiseSquared_i*ClusterThresholdSquared <= adcSum_i*adcSum_i;
+   //trueCluster[i] = noiseSquaredPass;
+   clusterLastIndexLeft[i] = indexLeft;
+   clusterLastIndexRight[i] = indexRight;
+   bool trueClust = noiseSquaredPass;
+
+   if (trueClust) {
+     int size=indexRight-indexLeft+1;
+     int offset=CLUSTER_SIZE-1-(index-indexLeft);
+     int sumx=0;
+     int suma=0;
+     for (int j=0; j<size; j++) {
+       uint8_t adc_j = adc2_loc[offset+j];
+       sumx += j*adc_j;
+       suma += adc_j;
+       clusterADCs[j*nSeedStripsNC+i] = adc_j;
+     }
+     barycenter[i] = (float)(stripId_left & stripIndexMask) + (float)sumx/(float)suma + 0.5f;
+
+     if (i>0&&clusterLastIndexLeft[i-1]==indexLeft) {
+       trueClust = 0;  // ignore duplicates
+     }
+     trueClust =  (adcSum2_i/0.047f) > minGoodCharge;
+   }
+
+   trueCluster[i] = trueClust;
+
+#ifndef NDRANGE
+   }
+#endif
+
+}
+
 __kernel void formClusters(int nStrips, int nSeedStripsNC, __global uint32_t* restrict detId, __global uint16_t* restrict stripId, __global uint8_t* restrict adc, __global int* restrict seedStripsNCIndex, __global float* restrict gain, __global float* restrict noise, __global int* restrict clusterLastIndexLeft, __global int* restrict clusterLastIndexRight, __global bool* restrict trueCluster,  __global uint8_t* restrict clusterADCs, __global float* restrict barycenter, int N) {
 
    const uint8_t MaxSequentialHoles = 0;
@@ -257,19 +446,19 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    float adcSum_i = (float)adc[index];
    uint32_t detId_i = detId[index];
 
-   uint16_t stripId_loc[2*CLUSTER_SIZE+1];
-   uint32_t detId_loc[2*CLUSTER_SIZE+1];
-   float noise_loc[2*CLUSTER_SIZE+1];
-   uint8_t adc_loc[2*CLUSTER_SIZE+1];
+   uint16_t stripId_loc[2*CLUSTER_SIZE-1];
+   uint32_t detId_loc[2*CLUSTER_SIZE-1];
+   float noise_loc[2*CLUSTER_SIZE-1];
+   uint8_t adc_loc[2*CLUSTER_SIZE-1];
 
-   for (int j=0; j<2*CLUSTER_SIZE+1; j++) {
-     int id = index-CLUSTER_SIZE+j;
-     if (id>=0&&id<nStrips) {
-       stripId_loc[j] = stripId[index-CLUSTER_SIZE+j];
-       detId_loc[j] = detId[index-CLUSTER_SIZE+j];
-       noise_loc[j] = noise[index-CLUSTER_SIZE+j];
-       adc_loc[j] = adc[index-CLUSTER_SIZE+j];
-     }
+   for (int j=0; j<2*CLUSTER_SIZE-1; j++) {
+     int id = index-CLUSTER_SIZE+1;
+     //if ((id+j)>=0&&(id+j)<nStrips) {
+       stripId_loc[j] = stripId[id+j];
+       detId_loc[j] = detId[id+j];
+       noise_loc[j] = noise[id+j];
+       adc_loc[j] = adc[id+j];
+     //}
    }
    
    /*
@@ -304,13 +493,12 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    }
 
    // find left boundary
-   uint16_t stripId_test = stripId_loc[CLUSTER_SIZE];
-   //for (int testIndexLeft=index-1;index-testIndexLeft<CLUSTER_SIZE; testIndexLeft--) {
+   uint16_t stripId_left = stripId_loc[CLUSTER_SIZE-1];
    for (int j=0; j<CLUSTER_SIZE-1; j++) {
      int testIndexLeft = index-1-j;
-     int id = CLUSTER_SIZE-1-j;
+     int id = CLUSTER_SIZE-2-j;
      if (testIndexLeft>=0) {
-       int rangeLeft = stripId_test-stripId_loc[id]-1;
+       int rangeLeft = stripId_left-stripId_loc[id]-1;
        bool sameDetLeft = detId_i == detId_loc[id];
        if (rangeLeft>=0&&rangeLeft<=MaxSequentialHoles&&sameDetLeft) {
 
@@ -319,7 +507,7 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
        
          if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
            --indexLeft;
-           stripId_test = stripId_loc[id];
+           stripId_left = stripId_loc[id];
            //noiseSquared_i += testNoise*testNoise;
            //adcSum_i += (float)testADC;
 
@@ -342,18 +530,19 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
    for (int k=0; k<K-1; k++) {
      noiseSquared_i += noiseSquared_loc[k];
      adcSum_i += adcSum_loc[k];
+     
      noiseSquared_loc[k] = 0.0;
      adcSum_loc[k] = 0.0;
+     
    }
 
    // find right boundary
-   stripId_test = stripId_loc[CLUSTER_SIZE];
-   //for (int testIndexRight=index+1; testIndexRight-index<CLUSTER_SIZE; testIndexRight++) {
+   uint16_t stripId_right = stripId_loc[CLUSTER_SIZE-1];
    for (int j=0; j<CLUSTER_SIZE-1; j++) {
      int testIndexRight = index+1+j;
-     int id=CLUSTER_SIZE+1+j;
+     int id=CLUSTER_SIZE+j;
      if (testIndexRight<nStrips) {
-       int rangeRight = stripId_loc[id]-stripId_test-1;
+       int rangeRight = stripId_loc[id]-stripId_right-1;
        bool sameDetRight = detId_i == detId_loc[id];
        if (rangeRight>=0&&rangeRight<=MaxSequentialHoles&&sameDetRight) {
 
@@ -362,7 +551,7 @@ __kernel void findLeftRightBoundary(int nStrips, __global uint32_t* restrict det
 	 
          if (testADC >= (uint8_t)(testNoise * ChannelThreshold)) {
            ++indexRight;
-	   stripId_test = stripId_loc[id];
+	   stripId_right = stripId_loc[id];
            //noiseSquared_i += testNoise*testNoise;
            //adcSum_i += (float)testADC;
            noiseSquared_loc[K-1] = noiseSquared_loc[0] + testNoise*testNoise;

@@ -2,7 +2,7 @@ AOCL_COMPILE_CONFIG=$(shell aocl compile-config)
 AOCL_LINK_CONFIG=$(shell aocl link-config)
 
 CC = g++
-CXXFLAGS = -std=c++17 -fPIC -g -DCALIB_1D -DUSE_FPGA #-DEMULATOR -DOUTPUT #-DNDRANGE #-DOUTPUT
+CXXFLAGS = -std=c++17 -fPIC -g -DCALIB_1D -DUSE_FPGA -DEMULATOR -DOUTPUT #-DNDRANGE #-DOUTPUT
 SRCS = $(wildcard *.cc)
 OBJS = $(SRCS:.cc=.o)
 

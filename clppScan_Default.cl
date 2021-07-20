@@ -47,8 +47,8 @@
 
 __kernel 
 void kernel__ExclusivePrefixScanSmall(
-	__global T* input,
-	__global T* output,
+	__global T* restrict input,
+	__global T* restrict output,
 	__local  T* block,
 	const uint length)
 {
@@ -131,11 +131,11 @@ void kernel__ExclusivePrefixScanSmall(
 
 __kernel
 void kernel__ExclusivePrefixScan(
-	__global T* dataSet,
+	__global T* restrict dataSet,
 	
 	__local T* localBuffer,
 	
-	__global T* blockSums,
+	__global T* restrict blockSums,
 	const uint blockSumsSize
 	)
 {
@@ -275,8 +275,8 @@ void kernel__ExclusivePrefixScan(
 
 __kernel
 void kernel__UniformAdd(
-	__global T* output,
-	__global const T* blockSums,
+	__global T* restrict output,
+	__global const T* restrict blockSums,
 	const uint outputSize
 	)
 {

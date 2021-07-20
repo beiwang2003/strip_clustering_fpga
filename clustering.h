@@ -11,6 +11,8 @@ class clustering : public clppProgram
 
   clustering(clppContext* context);
   ~clustering() { };
+
+  void formClusters(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl, clust_data_cl_t* clust_data_cl);
   
   void findBoundary(sst_data_cl_t *sst_data_cl, calib_data_cl_t* calib_data_cl, clust_data_cl_t* clust_data_cl);
 
@@ -18,6 +20,7 @@ class clustering : public clppProgram
 
  private:
 
+  cl_kernel _kernel_formClusters;
   cl_kernel _kernel_findBoundary;
   cl_kernel _kernel_checkCondition;
 };

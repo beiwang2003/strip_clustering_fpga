@@ -111,8 +111,9 @@ void setSeedStripsNCIndex(clppContext *context, sst_data_cl_t* sst_data_cl, sst_
 void findCluster(clppContext *context, sst_data_cl_t* sst_data_cl, calib_data_cl_t* calib_data_cl, clust_data_cl_t* clust_data_cl) {
 
   auto clusters_ptr = std::make_unique<clustering>(context);
-  clusters_ptr->findBoundary(sst_data_cl, calib_data_cl, clust_data_cl);
-  clusters_ptr->checkCondition(sst_data_cl, calib_data_cl, clust_data_cl);
+  //clusters_ptr->findBoundary(sst_data_cl, calib_data_cl, clust_data_cl);
+  //clusters_ptr->checkCondition(sst_data_cl, calib_data_cl, clust_data_cl);
+  clusters_ptr->formClusters(sst_data_cl, calib_data_cl, clust_data_cl);
   clusters_ptr->waitCompletion();
 
 }
